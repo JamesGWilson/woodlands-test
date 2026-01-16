@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using OrderTest.Api.Models;
+using OrderTest.Api.DTOs;
 using OrderTest.Api.Services;
 
 namespace OrderTest.Api.Controllers;
@@ -16,16 +16,27 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Create(Order order)
+    public async Task<IActionResult> Create([FromBody] CreateOrderDto order)
     {
-        var createdOrder = _orderService.CreateOrder(order);
-        return Ok(createdOrder);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var createdOrder = await _orderService.CreateOrderAsync(order);
+
+        //will return the Order ID and give you the URL to call the Get with ID in the body of the response
+        return CreatedAtAction(
+            nameof(Get),
+            new { id = createdOrder.Id },
+            createdOrder.Id
+        );
     }
 
     [HttpGet("{id}")]
-    public IActionResult Get(int id)
+    public async Task<IActionResult> Get(Guid id)
     {
-        var order = _orderService.GetOrder(id);
+        var order = await _orderService.GetOrderAsync(id);
 
         if (order == null)
         {

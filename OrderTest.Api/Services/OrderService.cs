@@ -1,47 +1,50 @@
+using OrderTest.Api.DTOs;
+using OrderTest.Api.Interfaces;
 using OrderTest.Api.Models;
-using OrderTest.Api.Repositories;
 
 namespace OrderTest.Api.Services;
 
 public class OrderService : IOrderService
 {
-    private readonly IOrderRepository _repository;
-    private readonly EmailNotificationService _notificationService;
+    private readonly IOrderRepository _orderRepository;
+    private readonly INotificationService _emailNotificationService;
 
-    public OrderService(IOrderRepository repository)
+    public OrderService(IOrderRepository orderRepository, INotificationService emailNotificationService)
     {
-        _repository = repository;
-        _notificationService = new EmailNotificationService();
+        _orderRepository = orderRepository;
+        _emailNotificationService = emailNotificationService;
     }
 
-    public Order CreateOrder(Order order)
+    public async Task<Order> CreateOrderAsync(CreateOrderDto orderDetails)
     {
-        if (string.IsNullOrEmpty(order.CustomerEmail))
+        var order = new Order
         {
-            throw new Exception("Customer email is required");
+            Id = Guid.NewGuid(),
+            CustomerEmail = orderDetails.CustomerEmail,
+            TotalAmount = orderDetails.TotalAmount,
+            CreatedAt = DateTime.UtcNow,
+            PhoneNumber = orderDetails.PhoneNumber
+        };
+
+        await _orderRepository.AddAsync(order);
+
+        _emailNotificationService.SendEmail(order.CustomerEmail);
+
+        if (!string.IsNullOrEmpty(order.PhoneNumber))
+        {
+            _emailNotificationService.SendSms(order.PhoneNumber);
         }
-
-        order.Id = new Random().Next(1, 1000);
-        order.CreatedAt = DateTime.Now;
-
-        _repository.Add(order);
-
-        _notificationService.SendEmail(
-            order.CustomerEmail,
-            "Order created",
-            "Your order has been created"
-        );
 
         return order;
     }
 
-    public Order GetOrder(int id)
+    public async Task<Order?> GetOrderAsync(Guid id)
     {
-        return _repository.GetById(id);
+        return await _orderRepository.GetByIdAsync(id);
     }
 
-    public IEnumerable<Order> GetOrders()
+    public async Task<IEnumerable<Order>> GetOrdersAsync()
     {
-        return _repository.GetAll();
+        return await _orderRepository.GetAllAsync();
     }
 }
